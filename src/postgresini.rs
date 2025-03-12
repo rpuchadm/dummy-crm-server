@@ -58,7 +58,7 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
             id SERIAL PRIMARY KEY,              -- Identificador único del artículo
             nombre VARCHAR(100) NOT NULL,       -- Nombre del artículo
             descripcion TEXT,                   -- Descripción del artículo
-            precio DECIMAL(10, 2) NOT NULL,     -- Precio del artículo
+            precio INT NOT NULL,     -- Precio del artículo
             stock INT NOT NULL DEFAULT 0,       -- Cantidad en stock
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Fecha de creación
         );
@@ -75,7 +75,7 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
             cliente_id INT NOT NULL,             -- ID del cliente que realiza el pedido
             fecha_pedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha del pedido
             estado VARCHAR(50) NOT NULL DEFAULT 'Pendiente', -- Estado del pedido (Pendiente, Enviado, Entregado, etc.)
-            total DECIMAL(10, 2) NOT NULL,      -- Total del pedido
+            total INT NOT NULL,      -- Total del pedido
             FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
         );
         "#,
@@ -91,8 +91,8 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
             pedido_id INT NOT NULL,             -- ID del pedido
             articulo_id INT NOT NULL,           -- ID del artículo
             cantidad INT NOT NULL,              -- Cantidad del artículo en el pedido
-            precio_unitario DECIMAL(10, 2) NOT NULL, -- Precio unitario del artículo en el momento del pedido
-            subtotal DECIMAL(10, 2) NOT NULL,   -- Subtotal (cantidad * precio_unitario)
+            precio_unitario INT NOT NULL, -- Precio unitario del artículo en el momento del pedido
+            subtotal INT NOT NULL,   -- Subtotal (cantidad * precio_unitario)
             FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE,
             FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE
         );

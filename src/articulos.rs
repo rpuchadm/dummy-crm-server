@@ -6,7 +6,7 @@ pub struct Articulo {
     pub id: i32,
     pub nombre: String,
     pub descripcion: Option<String>,
-    pub precio: f64,
+    pub precio: i32,
     pub stock: i32,
     pub fecha_creacion: chrono::NaiveDateTime,
 }

@@ -23,9 +23,10 @@ WORKDIR /app
 
 # Copia el binario compilado desde el contenedor builder
 COPY --from=builder /app/target/release/dummy-crm-server .
+COPY Rocket.toml .
 
 # Expone el puerto en el que el servidor de Go escucha
-EXPOSE 8000
+EXPOSE 8080
 
 # Define el comando para ejecutar el binario de Go
 CMD ["./dummy-crm-server"]

@@ -1,12 +1,13 @@
 use chrono::prelude::*;
 use redis::AsyncCommands;
-use rocket::FromForm;
 use rocket::form::Form;
 use rocket::http::Status;
 use rocket::outcome::Outcome;
 use rocket::request::{self, FromRequest, Request};
+use rocket::response::status::NotFound;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
+use rocket::{FromForm, catch, catchers};
 use rocket::{State, delete, get, launch, post, routes}; // put
 use sqlx::{Decode, FromRow, postgres};
 use std::env;
@@ -42,6 +43,8 @@ async fn rocket() -> _ {
         postgres_user, postgres_password, postgres_host, postgres_db
     );
 
+    println!("Postgres URL: {}", postgres_url);
+
     let pool: sqlx::Pool<sqlx::Postgres> = sqlx::postgres::PgPool::connect(postgres_url.as_str())
         .await
         .or_else(|err| {
@@ -55,6 +58,7 @@ async fn rocket() -> _ {
     rocket::build()
         .manage(AppState { pool })
         .mount("/", routes![auth, getarticulos, healthz, profile])
+        .register("/", catchers![not_found])
 }
 
 struct BearerToken(String);
@@ -77,6 +81,15 @@ impl<'r> FromRequest<'r> for BearerToken {
 #[get("/healthz")]
 async fn healthz() -> &'static str {
     "OK"
+}
+
+#[catch(404)]
+fn not_found(req: &Request) -> NotFound<String> {
+    // Registrar el error 404 en los logs
+    eprintln!("Ruta no encontrada: {}", req.uri());
+
+    // Devolver una respuesta 404 personalizada
+    NotFound(format!("Lo siento, la ruta '{}' no existe.", req.uri()))
 }
 
 const SUPER_SECRET: &str = "super_secret_token";
