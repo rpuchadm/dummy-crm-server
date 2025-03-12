@@ -35,7 +35,7 @@ async fn rocket() -> _ {
 
     rocket::build()
         .manage(AppState { pool })
-        .mount("/", routes![getarticulos, profile])
+        .mount("/", routes![auth, getarticulos, profile])
 }
 
 struct BearerToken(String);
@@ -63,7 +63,7 @@ async fn auth(state: &rocket::State<AppState>, token: BearerToken) -> Result<Str
         eprintln!("Error invalid super secret token");
         return Err(Status::Unauthorized);
     }
-    Status::Ok("You are authorized!".to_string())
+    Ok("You are authorized!".to_string())
 }
 
 #[get("/articulos")]
