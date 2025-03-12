@@ -11,6 +11,21 @@ microk8s kubectl rollout restart deploy dummy-crm-rust-app -n dummy-crm-namespac
 sudo vim /etc/hosts
 127.0.0.1       crm.mydomain.com
 
+cargo build 
+docker build -t rust-app -f DockerfileDebug .
+docker tag rust-app localhost:32000/dummy-crm-rust-app:latest
+docker push localhost:32000/dummy-crm-rust-app:latest
+microk8s kubectl rollout restart deploy dummy-crm-rust-app -n dummy-crm-namespace
+
+cargo build &&\
+cp -v target/debug/dummy-crm-server docker/ &&\
+cp -v Rocket.toml docker/ &&\
+cd docker &&\
+docker build -t rust-app -f DockerfileDebug . &&\
+docker tag rust-app localhost:32000/dummy-crm-rust-app:latest &&\
+docker push localhost:32000/dummy-crm-rust-app:latest &&\
+microk8s kubectl rollout restart deploy dummy-crm-rust-app -n dummy-crm-namespace
+cd ..
 
 
 # desde el pod

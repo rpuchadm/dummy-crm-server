@@ -55,10 +55,13 @@ async fn rocket() -> _ {
 
     postgresini::initialization(pool.clone()).await;
 
+    //let cors = cors_options().to_cors().expect("Error al configurar CORS");
+
     rocket::build()
         .manage(AppState { pool })
         .mount("/", routes![auth, getarticulos, healthz, profile])
         .register("/", catchers![not_found])
+    //.attach(cors)
 }
 
 struct BearerToken(String);
@@ -91,8 +94,27 @@ fn not_found(req: &Request) -> NotFound<String> {
     // Devolver una respuesta 404 personalizada
     NotFound(format!("Lo siento, la ruta '{}' no existe.", req.uri()))
 }
+/*
+fn cors_options() -> CorsOptions {
+    // Lista blanca de orígenes permitidos
+    let allowed_origins = AllowedOrigins::some(&[
+        "http://localhost:5173", // Permitir este origen específico
+        "http://localhost",      // Permitir cualquier puerto en localhost
+    ]);
 
-const SUPER_SECRET: &str = "super_secret_token";
+    // Configurar opciones de CORS
+    CorsOptions {
+        allowed_origins,
+        allowed_methods: vec![Method::Get, Method::Post, Method::Options]
+            .into_iter()
+            .map(|m| m.to_string())
+            .collect(),
+        allow_credentials: true, // Permitir credenciales
+        ..Default::default()
+    }
+}
+*/
+const SUPER_SECRET: &str = "super_secret_token111";
 
 #[get("/auth")]
 async fn auth(state: &rocket::State<AppState>, token: BearerToken) -> Result<String, Status> {

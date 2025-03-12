@@ -115,7 +115,7 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
     sqlx::query(
         r#"        
         INSERT INTO articulos (nombre, descripcion, precio, stock)
-        VALUES ('Laptop', 'Laptop de 15 pulgadas', 1200.00, 10);
+        VALUES ('Laptop', 'Laptop de 15 pulgadas', 120000, 10);
         "#,
     )
     .execute(&pool)
@@ -125,7 +125,7 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
     sqlx::query(
         r#"        
         INSERT INTO pedidos (cliente_id, total)
-        VALUES (1, 2400.00); -- Suponiendo que el cliente con ID 1 compra 2 laptops
+        VALUES (1, 240000); -- Suponiendo que el cliente con ID 1 compra 2 laptops
     "#,
     )
     .execute(&pool)
@@ -135,7 +135,7 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
     sqlx::query(
         r#"        
         INSERT INTO pedidos_detalles (pedido_id, articulo_id, cantidad, precio_unitario, subtotal)
-        VALUES (1, 1, 2, 1200.00, 2400.00); -- 2 laptops a 1200.00 cada una
+        VALUES (1, 1, 2, 120000, 240000); -- 2 laptops a 1200.00 cada una
         "#,
     )
     .execute(&pool)
