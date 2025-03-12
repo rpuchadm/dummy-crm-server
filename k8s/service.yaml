@@ -6,8 +6,8 @@ metadata:
 spec:
   ports:
     - name: http-port
-      port: 8080
-      targetPort: 8080 # Debe coincidir con el puerto expuesto por el contenedor
+      port: 8000
+      targetPort: 8000 # Debe coincidir con el puerto expuesto por el contenedor
       protocol: TCP
   selector:
     app: dummy-crm-rust-app # Asegúrate de que coincida con las etiquetas del pod

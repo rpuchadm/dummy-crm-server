@@ -17,7 +17,7 @@ spec:
       - name: dummy-crm-rust-app
         image: localhost:32000/dummy-crm-rust-app:latest  # Usar la imagen de tu registro local
         ports:
-        - containerPort: 8080
+        - containerPort: 8000
         envFrom:
         - configMapRef:
             name: postgres-config  # Referencia al ConfigMap        
@@ -31,8 +31,8 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8080
+            port: 8000
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 8080  
+            port: 8000  
