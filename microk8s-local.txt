@@ -1,0 +1,45 @@
+Microk8s en Ubuntu 24.04 con 1 nodo y registro  
+
+# vemos si está instalado ya 
+sudo snap list | grep microk8s 
+
+# desinslatamos microk8s vía snap 
+sudo snap remove microk8s  
+
+# instalamos microk8s vía snap 
+sudo snap install microk8s --classic 
+
+ # Añadir el usuario al grupo microk8s ejecutando esto desde el “home” del usuario: 
+sudo usermod -a -G microk8s <username> 
+mkdir .kube 
+sudo chown -R <username> ~/.kube 
+newgrp microk8s 
+
+# Comprobar que se ha isntalado correctamente: 
+microk8s status --wait-ready 
+
+# activar el dns
+microk8s enable dns
+
+# activar el registro
+microk8s enable registry
+
+# activar el ingress
+microk8s enable ingress
+
+# activar el dashboard
+microk8s enable dashboard
+
+# desactivar el modo cluster
+microk8s disable ha-cluster
+
+microk8s kubectl get services --all-namespaces | grep kubernetes-dashboard
+kube-system          kubernetes-dashboard        ClusterIP   10.152.183.22    <none>        443/TCP                  10m
+# Acceder al dashboard https://10.152.183.22
+microk8s kubectl describe secret -n kube-system microk8s-dashboard-token
+
+# reiniciar el servicio
+microk8s stop
+microk8s start
+microk8s status --wait-ready
+

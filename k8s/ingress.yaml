@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dummy-crm-app-ingress
+  namespace: dummy-crm-namespace
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  ingressClassName: public
+  rules:
+    - host: crm.mydomain.com
+      http:
+        paths:
+          - path: /crm-api/?(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: dummy-crm-rust-app-service
+                port:
+                  number: 8080        
+          - path: /?(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: dummy-crm-vite-nginx-app-service
+                port:
+                  number: 80

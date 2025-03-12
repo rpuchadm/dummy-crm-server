@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dummy-crm-rust-app
+  namespace: dummy-crm-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dummy-crm-rust-app
+  template:
+    metadata:
+      labels:
+        app: dummy-crm-rust-app
+    spec:
+      containers:
+      - name: dummy-crm-rust-app
+        image: localhost:32000/dummy-crm-rust-app:latest  # Usar la imagen de tu registro local
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: postgres-config  # Referencia al ConfigMap
+        env:
+        - name: AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret  # Nombre del secret
+              key: AUTH_TOKEN    # Clave del secret            
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 32Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080  
