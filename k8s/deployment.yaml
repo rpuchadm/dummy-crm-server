@@ -20,13 +20,7 @@ spec:
         - containerPort: 8080
         envFrom:
         - configMapRef:
-            name: postgres-config  # Referencia al ConfigMap
-        env:
-        - name: AUTH_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: auth-secret  # Nombre del secret
-              key: AUTH_TOKEN    # Clave del secret            
+            name: postgres-config  # Referencia al ConfigMap        
         resources:
           limits:
             cpu: 500m

@@ -35,7 +35,7 @@ async fn rocket() -> _ {
 
     rocket::build()
         .manage(AppState { pool })
-        .mount("/", routes![auth, getarticulos, profile])
+        .mount("/", routes![auth, getarticulos, healthz, profile])
 }
 
 struct BearerToken(String);
@@ -53,6 +53,11 @@ impl<'r> FromRequest<'r> for BearerToken {
         }
         Outcome::Error((Status::Unauthorized, ()))
     }
+}
+
+#[get("/healthz")]
+async fn healthz() -> &'static str {
+    "OK"
 }
 
 const SUPER_SECRET: &str = "super_secret_token";
