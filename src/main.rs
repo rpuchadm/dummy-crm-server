@@ -8,7 +8,9 @@ use rocket::response::status::NotFound;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::{FromForm, catch, catchers};
-use rocket::{State, delete, get, launch, post, routes}; // put
+use rocket::{State, delete, get, launch, post, routes};
+use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
+// put
 use sqlx::{Decode, FromRow, postgres};
 use std::env;
 
@@ -55,13 +57,13 @@ async fn rocket() -> _ {
 
     postgresini::initialization(pool.clone()).await;
 
-    //let cors = cors_options().to_cors().expect("Error al configurar CORS");
+    let cors = cors_options().to_cors().expect("Error al configurar CORS");
 
     rocket::build()
         .manage(AppState { pool })
         .mount("/", routes![auth, getarticulos, healthz, profile])
         .register("/", catchers![not_found])
-    //.attach(cors)
+        .attach(cors)
 }
 
 struct BearerToken(String);
@@ -94,26 +96,29 @@ fn not_found(req: &Request) -> NotFound<String> {
     // Devolver una respuesta 404 personalizada
     NotFound(format!("Lo siento, la ruta '{}' no existe.", req.uri()))
 }
-/*
-fn cors_options() -> CorsOptions {
-    // Lista blanca de orígenes permitidos
-    let allowed_origins = AllowedOrigins::some(&[
-        "http://localhost:5173", // Permitir este origen específico
-        "http://localhost",      // Permitir cualquier puerto en localhost
-    ]);
 
-    // Configurar opciones de CORS
-    CorsOptions {
+fn cors_options() -> CorsOptions {
+    let allowed_origins = AllowedOrigins::some_exact(&["http://localhost:5173/"]);
+
+    // You can also deserialize this
+    rocket_cors::CorsOptions {
         allowed_origins,
-        allowed_methods: vec![Method::Get, Method::Post, Method::Options]
-            .into_iter()
-            .map(|m| m.to_string())
-            .collect(),
-        allow_credentials: true, // Permitir credenciales
+        allowed_methods: vec![
+            rocket::http::Method::Get,
+            rocket::http::Method::Post,
+            rocket::http::Method::Put,
+            rocket::http::Method::Delete,
+            rocket::http::Method::Options,
+        ]
+        .into_iter()
+        .map(From::from)
+        .collect(),
+        allowed_headers: AllowedHeaders::some(&["Authorization", "Accept"]),
+        allow_credentials: true,
         ..Default::default()
     }
 }
-*/
+
 const SUPER_SECRET: &str = "super_secret_token111";
 
 #[get("/auth")]
