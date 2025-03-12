@@ -8,7 +8,8 @@ use rocket::request::{self, FromRequest, Request};
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::{State, delete, get, launch, post, routes}; // put
-use sqlx::{Decode, FromRow};
+use sqlx::{Decode, FromRow, postgres};
+use std::env;
 
 mod articulos;
 mod clientes;
@@ -21,9 +22,27 @@ struct AppState {
     pool: sqlx::Pool<sqlx::Postgres>,
 }
 
+// constante con el servidor de postgres
+//const POSTGRES_SERVER: &str = "postgresql://myuser:mypassword@localhost:5432/mydatabase";
+
 #[launch]
 async fn rocket() -> _ {
-    let pool: sqlx::Pool<sqlx::Postgres> = sqlx::postgres::PgPool::connect(POSTGRES_SERVER)
+    // sacamos de env POSTGRES_DB
+    let postgres_db =
+        env::var("POSTGRES_DB").expect("La variable de entorno POSTGRES_DB no está definida");
+    let postgres_user =
+        env::var("POSTGRES_USER").expect("La variable de entorno POSTGRES_USER no está definida");
+    let postgres_password = env::var("POSTGRES_PASSWORD")
+        .expect("La variable de entorno POSTGRES_PASSWORD no está definida");
+    let postgres_host = env::var("POSTGRES_SERVICE")
+        .expect("La variable de entorno POSTGRES_SERVICE no está definida");
+
+    let postgres_url = format!(
+        "postgresql://{}:{}@{}:5432/{}",
+        postgres_user, postgres_password, postgres_host, postgres_db
+    );
+
+    let pool: sqlx::Pool<sqlx::Postgres> = sqlx::postgres::PgPool::connect(postgres_url.as_str())
         .await
         .or_else(|err| {
             eprintln!("Error connecting to the database: {:?}", err);
@@ -95,6 +114,3 @@ async fn profile(state: &State<AppState>, user_id: i32) -> Result<Json<Cliente>,
 
     Ok(Json(cliente))
 }
-
-// constante con el servidor de postgres
-const POSTGRES_SERVER: &str = "postgresql://myuser:mypassword@localhost:5432/mydatabase";
