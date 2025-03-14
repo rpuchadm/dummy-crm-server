@@ -18,7 +18,7 @@ mod articulos;
 mod clientes;
 mod postgresini;
 
-use articulos::{Articulo, postgres_get_articulos};
+use articulos::{Articulo, ArticuloRequest, postgres_get_articulos};
 use clientes::{Cliente, postgres_get_cliente_by_user_id};
 
 struct AppState {
@@ -61,7 +61,10 @@ async fn rocket() -> _ {
 
     rocket::build()
         .manage(AppState { pool })
-        .mount("/", routes![auth, getarticulos, healthz, profile])
+        .mount(
+            "/",
+            routes![auth, getarticulo, getarticulos, healthz, profile],
+        )
         .register("/", catchers![not_found])
         .attach(cors)
 }
@@ -121,13 +124,23 @@ fn cors_options() -> CorsOptions {
 
 const SUPER_SECRET: &str = "super_secret_token111";
 
+#[derive(Serialize, Deserialize)]
+struct AuthResponse {
+    status: String,
+}
+
 #[get("/auth")]
-async fn auth(state: &rocket::State<AppState>, token: BearerToken) -> Result<String, Status> {
+async fn auth(
+    state: &rocket::State<AppState>,
+    token: BearerToken,
+) -> Result<Json<AuthResponse>, Status> {
     if token.0 != SUPER_SECRET {
         eprintln!("Error invalid super secret token");
         return Err(Status::Unauthorized);
     }
-    Ok("You are authorized!".to_string())
+    Ok(Json(AuthResponse {
+        status: "success".to_string(),
+    }))
 }
 
 #[get("/articulos")]
@@ -139,6 +152,22 @@ async fn getarticulos(state: &rocket::State<AppState>) -> Result<Json<Vec<Articu
     })?;
 
     Ok(Json(varticulos))
+}
+
+#[get("/articulo/<id>")]
+async fn getarticulo(state: &rocket::State<AppState>, id: i32) -> Result<Json<Articulo>, Status> {
+    let pool = state.pool.clone();
+    let varticulos = postgres_get_articulos(&pool).await.map_err(|e| {
+        eprintln!("Error getting articles: {:?}", e);
+        Status::InternalServerError
+    })?;
+
+    let articulo = varticulos.iter().find(|a| a.id == id);
+
+    match articulo {
+        Some(a) => Ok(Json(a.clone())),
+        None => Err(Status::NotFound),
+    }
 }
 
 #[get("/profile/<user_id>")]

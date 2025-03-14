@@ -1,7 +1,17 @@
+use rocket::FromForm;
 use serde::Serialize;
 use sqlx::{Decode, FromRow};
 
-#[derive(Serialize, Clone, FromRow)]
+#[derive(Serialize, Clone, FromRow, Decode, FromForm, Debug)]
+pub struct ArticuloRequest {
+    pub id: i32,
+    pub nombre: String,
+    pub descripcion: Option<String>,
+    pub precio: i32,
+    pub stock: i32,
+}
+
+#[derive(Serialize, Clone, FromRow, Decode)]
 pub struct Articulo {
     pub id: i32,
     pub nombre: String,
