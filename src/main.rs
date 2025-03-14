@@ -7,7 +7,7 @@ use rocket::request::{self, FromRequest, Request};
 use rocket::response::status::NotFound;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::{FromForm, catch, catchers};
+use rocket::{FromForm, catch, catchers, put};
 use rocket::{State, delete, get, launch, post, routes};
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 // put
@@ -18,7 +18,10 @@ mod articulos;
 mod clientes;
 mod postgresini;
 
-use articulos::{Articulo, ArticuloRequest, postgres_get_articulos};
+use articulos::{
+    Articulo, ArticuloRequest, postgres_create_articulo, postgres_get_articulo_by_id,
+    postgres_get_articulos, postgres_update_articulo,
+};
 use clientes::{Cliente, postgres_get_cliente_by_user_id};
 
 struct AppState {
@@ -63,7 +66,15 @@ async fn rocket() -> _ {
         .manage(AppState { pool })
         .mount(
             "/",
-            routes![auth, getarticulo, getarticulos, healthz, profile],
+            routes![
+                auth,
+                getarticulo,
+                getarticulos,
+                healthz,
+                postarticulo,
+                profile,
+                putarticulo
+            ],
         )
         .register("/", catchers![not_found])
         .attach(cors)
@@ -107,10 +118,10 @@ fn cors_options() -> CorsOptions {
     rocket_cors::CorsOptions {
         allowed_origins,
         allowed_methods: vec![
+            rocket::http::Method::Delete,
             rocket::http::Method::Get,
             rocket::http::Method::Post,
             rocket::http::Method::Put,
-            rocket::http::Method::Delete,
             rocket::http::Method::Options,
         ]
         .into_iter()
@@ -130,10 +141,7 @@ struct AuthResponse {
 }
 
 #[get("/auth")]
-async fn auth(
-    state: &rocket::State<AppState>,
-    token: BearerToken,
-) -> Result<Json<AuthResponse>, Status> {
+async fn auth(token: BearerToken) -> Result<Json<AuthResponse>, Status> {
     if token.0 != SUPER_SECRET {
         eprintln!("Error invalid super secret token");
         return Err(Status::Unauthorized);
@@ -157,17 +165,62 @@ async fn getarticulos(state: &rocket::State<AppState>) -> Result<Json<Vec<Articu
 #[get("/articulo/<id>")]
 async fn getarticulo(state: &rocket::State<AppState>, id: i32) -> Result<Json<Articulo>, Status> {
     let pool = state.pool.clone();
-    let varticulos = postgres_get_articulos(&pool).await.map_err(|e| {
-        eprintln!("Error getting articles: {:?}", e);
+    let articulo = postgres_get_articulo_by_id(&pool, id).await.map_err(|e| {
+        eprintln!("Error getting article: {:?}", e);
         Status::InternalServerError
     })?;
 
-    let articulo = varticulos.iter().find(|a| a.id == id);
+    Ok(Json(articulo))
+}
 
-    match articulo {
-        Some(a) => Ok(Json(a.clone())),
-        None => Err(Status::NotFound),
+#[post("/articulo/<id>", data = "<articulo>")]
+async fn postarticulo(
+    state: &rocket::State<AppState>,
+    articulo: Form<ArticuloRequest>,
+    id: i32,
+) -> Result<Json<Articulo>, Status> {
+    let pool = state.pool.clone();
+    let articulo = articulo.into_inner();
+
+    // si id no es 0 da error
+    if articulo.id != 0 || id != 0 {
+        eprintln!("Error creating article: id must be 0");
+        return Err(Status::BadRequest);
     }
+
+    let new_articulo = postgres_create_articulo(&pool, articulo)
+        .await
+        .map_err(|e| {
+            eprintln!("Error creating article: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    Ok(Json(new_articulo))
+}
+
+#[put("/articulo/<id>", data = "<articulo>")]
+async fn putarticulo(
+    state: &rocket::State<AppState>,
+    articulo: Form<ArticuloRequest>,
+    id: i32,
+) -> Result<Json<Articulo>, Status> {
+    let pool = state.pool.clone();
+    let articulo = articulo.into_inner();
+
+    // si id es 0 da error
+    if articulo.id == 0 || id != articulo.id {
+        eprintln!("Error updating article: id must not be 0 and equal to the URL id");
+        return Err(Status::BadRequest);
+    }
+
+    let new_articulo = postgres_update_articulo(&pool, articulo, id)
+        .await
+        .map_err(|e| {
+            eprintln!("Error updating article: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    Ok(Json(new_articulo))
 }
 
 #[get("/profile/<user_id>")]
