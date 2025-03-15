@@ -127,7 +127,7 @@ fn cors_options() -> CorsOptions {
         .into_iter()
         .map(From::from)
         .collect(),
-        allowed_headers: AllowedHeaders::some(&["Authorization", "Accept"]),
+        allowed_headers: AllowedHeaders::some(&["Authorization", "Accept", "Content-Type"]),
         allow_credentials: true,
         ..Default::default()
     }
@@ -176,7 +176,7 @@ async fn getarticulo(state: &rocket::State<AppState>, id: i32) -> Result<Json<Ar
 #[post("/articulo/<id>", data = "<articulo>")]
 async fn postarticulo(
     state: &rocket::State<AppState>,
-    articulo: Form<ArticuloRequest>,
+    articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
     let pool = state.pool.clone();
@@ -201,7 +201,7 @@ async fn postarticulo(
 #[put("/articulo/<id>", data = "<articulo>")]
 async fn putarticulo(
     state: &rocket::State<AppState>,
-    articulo: Form<ArticuloRequest>,
+    articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
     let pool = state.pool.clone();
