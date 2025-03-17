@@ -1,3 +1,14 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: auth-config
+  namespace: dummy-crm-namespace
+data:
+  AUTH_ACCESSTOKEN_URL: https://erp.mydomain.com/oauth/accessToken
+  CLIENT_ID: CRM
+  REDIRECT_URI: https://crm.mydomain.com/authback/?code=
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,6 +30,8 @@ spec:
         ports:
         - containerPort: 8080
         envFrom:
+        - configMapRef:
+            name: auth-config  # Referencia al ConfigMap        
         - configMapRef:
             name: postgres-config  # Referencia al ConfigMap        
         resources:

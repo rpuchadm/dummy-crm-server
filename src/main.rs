@@ -1,5 +1,7 @@
 use chrono::prelude::*;
 use redis::AsyncCommands;
+use reqwest::Certificate;
+use reqwest::Client;
 use rocket::form::Form;
 use rocket::http::Status;
 use rocket::outcome::Outcome;
@@ -7,8 +9,8 @@ use rocket::request::{self, FromRequest, Request};
 use rocket::response::status::NotFound;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::{FromForm, catch, catchers, put};
 use rocket::{State, delete, get, launch, post, routes};
+use rocket::{catch, catchers, put};
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 // put
 use sqlx::{Decode, FromRow, postgres};
@@ -77,6 +79,7 @@ async fn rocket() -> _ {
                 profiles,
                 putarticulo,
                 putprofile,
+                authback,
             ],
         )
         .register("/", catchers![not_found])
@@ -285,4 +288,47 @@ async fn putprofile(
         })?;
 
     Ok(Json(new_cliente))
+}
+
+#[get("/authback/<code>")]
+async fn authback(code: String) -> Result<Option<String>, Status> {
+    //saca authback_url de env
+    let authback_url = env::var("AUTH_ACCESSTOKEN_URL")
+        .expect("La variable de entorno AUTH_ACCESSTOKEN_URL no está definida");
+
+    let client_id =
+        env::var("CLIENT_ID").expect("La variable de entorno CLIENT_ID no está definida");
+
+    let redirect_uri =
+        env::var("REDIRECT_URI").expect("La variable de entorno REDIRECT_URI no está definida");
+
+    // Crear un cliente que no verifique los certificados SSL
+    let client = Client::builder()
+        .danger_accept_invalid_certs(true) // Desactiva la verificación SSL
+        .build()
+        .map_err(|e| {
+            eprintln!("Error building client: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    let response = client
+        .post(authback_url)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(format!(
+            "grant_type=authorization_code&code={}&client_id={}&redirect_uri={}",
+            code, client_id, redirect_uri
+        ))
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("Error getting access token: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    let response = response.text().await.map_err(|e| {
+        eprintln!("Error getting access token: {:?}", e);
+        Status::InternalServerError
+    })?;
+
+    Ok(Some(response))
 }
