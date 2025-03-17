@@ -72,8 +72,11 @@ async fn rocket() -> _ {
                 getarticulos,
                 healthz,
                 postarticulo,
+                postprofile,
                 profile,
-                putarticulo
+                profiles,
+                putarticulo,
+                putprofile,
             ],
         )
         .register("/", catchers![not_found])
@@ -235,4 +238,53 @@ async fn profile(state: &State<AppState>, user_id: i32) -> Result<Json<Cliente>,
         })?;
 
     Ok(Json(cliente))
+}
+
+#[get("/profiles")]
+async fn profiles(state: &State<AppState>) -> Result<Json<Vec<Cliente>>, Status> {
+    let pool = state.pool.clone();
+
+    let clientes = clientes::postgres_get_clientes(&pool).await.map_err(|e| {
+        eprintln!("Error getting clients: {:?}", e);
+        Status::InternalServerError
+    })?;
+
+    Ok(Json(clientes))
+}
+
+#[post("/profile", data = "<cliente>")]
+async fn postprofile(
+    state: &State<AppState>,
+    cliente: Json<clientes::ClienteRequest>,
+) -> Result<Json<Cliente>, Status> {
+    let pool = state.pool.clone();
+    let cliente = cliente.into_inner();
+
+    let new_cliente = clientes::postgres_create_cliente(&pool, cliente)
+        .await
+        .map_err(|e| {
+            eprintln!("Error creating client: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    Ok(Json(new_cliente))
+}
+
+#[put("/profile/<user_id>", data = "<cliente>")]
+async fn putprofile(
+    state: &State<AppState>,
+    cliente: Json<clientes::ClienteRequest>,
+    user_id: i32,
+) -> Result<Json<Cliente>, Status> {
+    let pool = state.pool.clone();
+    let cliente = cliente.into_inner();
+
+    let new_cliente = clientes::postgres_update_cliente(&pool, cliente, user_id)
+        .await
+        .map_err(|e| {
+            eprintln!("Error updating client: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    Ok(Json(new_cliente))
 }
