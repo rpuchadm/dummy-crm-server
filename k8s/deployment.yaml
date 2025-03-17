@@ -6,7 +6,7 @@ metadata:
   namespace: dummy-crm-namespace
 data:
   #AUTH_ACCESSTOKEN_URL: https://erp.mydomain.com/oauth/accessToken
-  AUTH_ACCESSTOKEN_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/oauth/accessToken
+  AUTH_ACCESSTOKEN_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/accessToken
   CLIENT_ID: CRM
   REDIRECT_URI: https://crm.mydomain.com/authback/?code=
 ---

@@ -332,8 +332,16 @@ async fn authback(code: &str) -> Result<Option<String>, Status> {
             Status::InternalServerError
         })?;
 
-    let response = response.json::<AccessTokenResponse>().await.map_err(|e| {
-        eprintln!("Error parsing access token response: {:?}", e);
+    let response_text = response.text().await.map_err(|e| {
+        eprintln!("Error getting response text: {:?}", e);
+        Status::InternalServerError
+    })?;
+
+    let response: AccessTokenResponse = serde_json::from_str(&response_text).map_err(|e| {
+        eprintln!(
+            "Error parsing access token response: {:?} {}",
+            e, response_text
+        );
         Status::InternalServerError
     })?;
 
