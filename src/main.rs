@@ -14,6 +14,7 @@ use rocket::{catch, catchers, put};
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 // put
 use sqlx::{Decode, FromRow, postgres};
+use std::collections::HashMap;
 use std::env;
 
 mod articulos;
@@ -29,9 +30,6 @@ use clientes::{Cliente, postgres_get_cliente_by_id};
 struct AppState {
     pool: sqlx::Pool<sqlx::Postgres>,
 }
-
-// constante con el servidor de postgres
-//const POSTGRES_SERVER: &str = "postgresql://myuser:mypassword@localhost:5432/mydatabase";
 
 #[launch]
 async fn rocket() -> _ {
@@ -139,7 +137,34 @@ fn cors_options() -> CorsOptions {
     }
 }
 
-const SUPER_SECRET: &str = "super_secret_token111";
+#[derive(Deserialize)]
+struct AuthProfile {
+    id: i32,
+    client_id: String,
+    user_id: i32,
+    attributes: HashMap<String, String>,
+}
+
+async fn auth_profile(token: BearerToken) -> Option<AuthProfile> {
+    let authprofile_url = env::var("AUTH_PROFILE_URL")
+        .expect("La variable de entorno AUTH_PROFILE_URL no está definida");
+
+    let client = Client::builder().build().unwrap();
+
+    let response = client
+        .get(authprofile_url)
+        .header("Authorization ", format!("Bearer {}", token.0))
+        .send()
+        .await
+        .unwrap();
+
+    if !response.status().is_success() {
+        return None;
+    }
+
+    let profile: AuthProfile = response.json().await.unwrap();
+    Some(profile)
+}
 
 #[derive(Serialize, Deserialize)]
 struct AuthResponse {
@@ -148,17 +173,40 @@ struct AuthResponse {
 
 #[get("/auth")]
 async fn auth(token: BearerToken) -> Result<Json<AuthResponse>, Status> {
-    if token.0 != SUPER_SECRET {
-        eprintln!("Error invalid super secret token");
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
         return Err(Status::Unauthorized);
     }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     Ok(Json(AuthResponse {
         status: "success".to_string(),
     }))
 }
 
 #[get("/articulos")]
-async fn getarticulos(state: &rocket::State<AppState>) -> Result<Json<Vec<Articulo>>, Status> {
+async fn getarticulos(
+    state: &rocket::State<AppState>,
+    token: BearerToken,
+) -> Result<Json<Vec<Articulo>>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
     let varticulos = postgres_get_articulos(&pool).await.map_err(|e| {
         eprintln!("Error getting articles: {:?}", e);
@@ -169,7 +217,23 @@ async fn getarticulos(state: &rocket::State<AppState>) -> Result<Json<Vec<Articu
 }
 
 #[get("/articulo/<id>")]
-async fn getarticulo(state: &rocket::State<AppState>, id: i32) -> Result<Json<Articulo>, Status> {
+async fn getarticulo(
+    state: &rocket::State<AppState>,
+    token: BearerToken,
+    id: i32,
+) -> Result<Json<Articulo>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
     let articulo = postgres_get_articulo_by_id(&pool, id).await.map_err(|e| {
         eprintln!("Error getting article: {:?}", e);
@@ -182,9 +246,22 @@ async fn getarticulo(state: &rocket::State<AppState>, id: i32) -> Result<Json<Ar
 #[post("/articulo/<id>", data = "<articulo>")]
 async fn postarticulo(
     state: &rocket::State<AppState>,
+    token: BearerToken,
     articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
     let articulo = articulo.into_inner();
 
@@ -207,9 +284,22 @@ async fn postarticulo(
 #[put("/articulo/<id>", data = "<articulo>")]
 async fn putarticulo(
     state: &rocket::State<AppState>,
+    token: BearerToken,
     articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
     let articulo = articulo.into_inner();
 
@@ -230,7 +320,23 @@ async fn putarticulo(
 }
 
 #[get("/profile/<id>")]
-async fn profile(state: &State<AppState>, id: i32) -> Result<Json<Cliente>, Status> {
+async fn profile(
+    state: &State<AppState>,
+    token: BearerToken,
+    id: i32,
+) -> Result<Json<Cliente>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
 
     let cliente = postgres_get_cliente_by_id(&pool, id).await.map_err(|e| {
@@ -242,7 +348,22 @@ async fn profile(state: &State<AppState>, id: i32) -> Result<Json<Cliente>, Stat
 }
 
 #[get("/profiles")]
-async fn profiles(state: &State<AppState>) -> Result<Json<Vec<Cliente>>, Status> {
+async fn profiles(
+    state: &State<AppState>,
+    token: BearerToken,
+) -> Result<Json<Vec<Cliente>>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
 
     let clientes = clientes::postgres_get_clientes(&pool).await.map_err(|e| {
@@ -256,8 +377,21 @@ async fn profiles(state: &State<AppState>) -> Result<Json<Vec<Cliente>>, Status>
 #[post("/profile", data = "<cliente>")]
 async fn postprofile(
     state: &State<AppState>,
+    token: BearerToken,
     cliente: Json<clientes::ClienteRequest>,
 ) -> Result<Json<Cliente>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
     let cliente = cliente.into_inner();
 
@@ -274,9 +408,22 @@ async fn postprofile(
 #[put("/profile/<user_id>", data = "<cliente>")]
 async fn putprofile(
     state: &State<AppState>,
+    token: BearerToken,
     cliente: Json<clientes::ClienteRequest>,
     user_id: i32,
 ) -> Result<Json<Cliente>, Status> {
+    let profile = auth_profile(token).await;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
     let pool = state.pool.clone();
     let cliente = cliente.into_inner();
 
@@ -290,7 +437,7 @@ async fn putprofile(
     Ok(Json(new_cliente))
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct AccessTokenResponse {
     access_token: String,
     token_type: String,
@@ -298,7 +445,7 @@ struct AccessTokenResponse {
 }
 
 #[get("/authback/<code>")]
-async fn authback(code: &str) -> Result<Option<String>, Status> {
+async fn authback(code: &str) -> Result<Option<Json<AccessTokenResponse>>, Status> {
     //saca authback_url de env
     let authback_url = env::var("AUTH_ACCESSTOKEN_URL")
         .expect("La variable de entorno AUTH_ACCESSTOKEN_URL no está definida");
@@ -311,7 +458,7 @@ async fn authback(code: &str) -> Result<Option<String>, Status> {
 
     // Crear un cliente que no verifique los certificados SSL
     let client = Client::builder()
-        .danger_accept_invalid_certs(true) // Desactiva la verificación SSL
+        //.danger_accept_invalid_certs(true) // Desactiva la verificación SSL
         .build()
         .map_err(|e| {
             eprintln!("Error building client: {:?}", e);
@@ -345,5 +492,5 @@ async fn authback(code: &str) -> Result<Option<String>, Status> {
         Status::InternalServerError
     })?;
 
-    Ok(Some(response.access_token))
+    Ok(Some(Json(response)))
 }

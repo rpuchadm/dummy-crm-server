@@ -7,6 +7,7 @@ metadata:
 data:
   #AUTH_ACCESSTOKEN_URL: https://erp.mydomain.com/oauth/accessToken
   AUTH_ACCESSTOKEN_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/accessToken
+  AUTH_PROFILE_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/profile
   CLIENT_ID: CRM
   REDIRECT_URI: https://crm.mydomain.com/authback/?code=
 ---
