@@ -1,4 +1,16 @@
 
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: postgres-config
+  namespace: dummy-corp-erp-namespace
+data:
+  POSTGRES_DB: mydatabase
+  POSTGRES_PASSWORD: password
+  POSTGRES_SERVICE: postgresql
+  POSTGRES_USER: user
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
