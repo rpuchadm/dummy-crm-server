@@ -22,7 +22,7 @@ use articulos::{
     Articulo, ArticuloRequest, postgres_create_articulo, postgres_get_articulo_by_id,
     postgres_get_articulos, postgres_update_articulo,
 };
-use clientes::{Cliente, postgres_get_cliente_by_user_id};
+use clientes::{Cliente, postgres_get_cliente_by_id};
 
 struct AppState {
     pool: sqlx::Pool<sqlx::Postgres>,
@@ -226,16 +226,14 @@ async fn putarticulo(
     Ok(Json(new_articulo))
 }
 
-#[get("/profile/<user_id>")]
-async fn profile(state: &State<AppState>, user_id: i32) -> Result<Json<Cliente>, Status> {
+#[get("/profile/<id>")]
+async fn profile(state: &State<AppState>, id: i32) -> Result<Json<Cliente>, Status> {
     let pool = state.pool.clone();
 
-    let cliente = postgres_get_cliente_by_user_id(&pool, user_id)
-        .await
-        .map_err(|e| {
-            eprintln!("Error getting client: {:?}", e);
-            Status::InternalServerError
-        })?;
+    let cliente = postgres_get_cliente_by_id(&pool, id).await.map_err(|e| {
+        eprintln!("Error getting client: {:?}", e);
+        Status::InternalServerError
+    })?;
 
     Ok(Json(cliente))
 }
