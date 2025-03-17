@@ -290,8 +290,15 @@ async fn putprofile(
     Ok(Json(new_cliente))
 }
 
+#[derive(Deserialize)]
+struct AccessTokenResponse {
+    access_token: String,
+    token_type: String,
+    expires_in: i32,
+}
+
 #[get("/authback/<code>")]
-async fn authback(code: String) -> Result<Option<String>, Status> {
+async fn authback(code: &str) -> Result<Option<String>, Status> {
     //saca authback_url de env
     let authback_url = env::var("AUTH_ACCESSTOKEN_URL")
         .expect("La variable de entorno AUTH_ACCESSTOKEN_URL no está definida");
@@ -325,10 +332,10 @@ async fn authback(code: String) -> Result<Option<String>, Status> {
             Status::InternalServerError
         })?;
 
-    let response = response.text().await.map_err(|e| {
-        eprintln!("Error getting access token: {:?}", e);
+    let response = response.json::<AccessTokenResponse>().await.map_err(|e| {
+        eprintln!("Error parsing access token response: {:?}", e);
         Status::InternalServerError
     })?;
 
-    Ok(Some(response))
+    Ok(Some(response.access_token))
 }
