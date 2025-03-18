@@ -26,7 +26,7 @@ use articulos::{
     Articulo, ArticuloRequest, postgres_create_articulo, postgres_get_articulo_by_id,
     postgres_get_articulos, postgres_update_articulo,
 };
-use clientes::{Cliente, postgres_get_cliente_by_id};
+use clientes::{Cliente, postgres_get_cliente_by_user_id};
 use sesion::{AuthProfile, redis_get_session_by_token, redis_set_session_by_token};
 
 struct AppState {
@@ -176,28 +176,53 @@ async fn auth_profile(token: BearerToken) -> Result<Option<AuthProfile>, Status>
         .get(authprofile_url)
         .header("Authorization", format!("Bearer {}", token.0))
         .send()
-        .await
+        /*.await
         .map_err(|e| {
             eprintln!("Error getting profile: {:?}", e);
             Status::InternalServerError
-        })?;
+        })?;*/
+        .await;
 
-    if response.status().is_success() {
-        let profile: AuthProfile = response.json().await.map_err(|e| {
-            eprintln!("Error parsing profile: {:?}", e);
-            Status::InternalServerError
-        })?;
+    match response {
+        Ok(response) => {
+            // Verificar el código de estado de la respuesta
+            match response.status().as_u16() {
+                200 => {
+                    // Parsear la respuesta JSON a la estructura AuthProfile
+                    let profile = response.json::<AuthProfile>().await.map_err(|e| {
+                        eprintln!("Error parsing profile: {:?}", e);
+                        Status::InternalServerError
+                    })?;
 
-        Ok(Some(profile))
-    } else {
-        eprintln!("auth_profile response status: {}", response.status());
-        Err(Status::InternalServerError)
+                    Ok(Some(profile))
+                }
+                401 => {
+                    eprintln!("auth_profile response status: 401 Unauthorized");
+                    Err(Status::Unauthorized) // Devolver 401 Unauthorized
+                }
+                _ => {
+                    eprintln!("auth_profile response status: {}", response.status());
+                    Err(Status::InternalServerError) // Devolver 500 para otros errores
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            let errmsg = e.to_string();
+            if errmsg.contains("401") {
+                // status: 401 Unauthorized
+                return Err(Status::Unauthorized);
+            }
+            Err(Status::InternalServerError)
+        }
     }
 }
 
 #[derive(Serialize, Deserialize)]
 struct AuthResponse {
     status: String,
+    user_id: i32,
+    attributes: HashMap<String, String>,
 }
 
 #[get("/auth")]
@@ -224,19 +249,23 @@ async fn auth(
             Status::InternalServerError
         })?;
 
+    println!("profile con redis: {:?}", profile);
+
+    let user_id = profile.as_ref().map(|p| p.user_id).unwrap_or(0);
+    let attributes = profile
+        .as_ref()
+        .map(|p| p.attributes.clone())
+        .unwrap_or(HashMap::new());
+
     if profile.is_some() {
         return Ok(Json(AuthResponse {
             status: "success".to_string(),
+            user_id,
+            attributes,
         }));
     }
 
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -244,9 +273,14 @@ async fn auth(
 
     let profile = profile.unwrap();
 
+    println!("profile sin redis: {:?}", profile);
+
     if profile.user_id == 0 {
         return Err(Status::Forbidden);
     }
+
+    let user_id = profile.user_id;
+    let attributes = profile.attributes.clone();
 
     redis_set_session_by_token(&redis_client, &token_str, &profile, state.auth_redis_ttl)
         .await
@@ -257,6 +291,8 @@ async fn auth(
 
     Ok(Json(AuthResponse {
         status: "success".to_string(),
+        user_id,
+        attributes,
     }))
 }
 
@@ -265,13 +301,7 @@ async fn getarticulos(
     state: &rocket::State<AppState>,
     token: BearerToken,
 ) -> Result<Json<Vec<Articulo>>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -298,13 +328,7 @@ async fn getarticulo(
     token: BearerToken,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -332,13 +356,7 @@ async fn postarticulo(
     articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -376,13 +394,7 @@ async fn putarticulo(
     articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -418,14 +430,8 @@ async fn profile(
     state: &State<AppState>,
     token: BearerToken,
     id: i32,
-) -> Result<Json<Cliente>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+) -> Result<Json<Option<Cliente>>, Status> {
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -437,12 +443,22 @@ async fn profile(
         return Err(Status::Forbidden);
     }
 
+    if id != profile.user_id {
+        let default_role = "".to_string();
+        let role = profile.attributes.get("role").unwrap_or(&default_role);
+        if role != "admin" {
+            return Err(Status::Forbidden);
+        }
+    }
+
     let pool = state.pool.clone();
 
-    let cliente = postgres_get_cliente_by_id(&pool, id).await.map_err(|e| {
-        eprintln!("Error getting client: {:?}", e);
-        Status::InternalServerError
-    })?;
+    let cliente = postgres_get_cliente_by_user_id(&pool, id)
+        .await
+        .map_err(|e| {
+            eprintln!("Error getting client: {:?}", e);
+            Status::InternalServerError
+        })?;
 
     Ok(Json(cliente))
 }
@@ -452,13 +468,7 @@ async fn profiles(
     state: &State<AppState>,
     token: BearerToken,
 ) -> Result<Json<Vec<Cliente>>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -486,13 +496,7 @@ async fn postprofile(
     token: BearerToken,
     cliente: Json<clientes::ClienteRequest>,
 ) -> Result<Json<Cliente>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -524,13 +528,7 @@ async fn putprofile(
     cliente: Json<clientes::ClienteRequest>,
     user_id: i32,
 ) -> Result<Json<Cliente>, Status> {
-    let profile = match auth_profile(token).await {
-        Ok(profile) => profile,
-        Err(e) => {
-            eprintln!("Error getting profile: {:?}", e);
-            return Err(Status::InternalServerError);
-        }
-    };
+    let profile = auth_profile(token).await?;
 
     if profile.is_none() {
         return Err(Status::Unauthorized);

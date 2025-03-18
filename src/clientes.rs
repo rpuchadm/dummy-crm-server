@@ -35,9 +35,26 @@ pub async fn postgres_get_clientes(
     Ok(clientes)
 }
 
-pub async fn postgres_get_cliente_by_id(
+pub async fn postgres_get_cliente_by_user_id(
     pool: &sqlx::Pool<sqlx::Postgres>,
     user_id: i32,
+) -> Result<Option<Cliente>, sqlx::Error> {
+    let cliente: Option<Cliente> = sqlx::query_as::<_, Cliente>(
+        "SELECT
+            id, user_id, nombre, email, telefono, direccion, fecha_registro
+        FROM clientes
+        WHERE user_id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(cliente)
+}
+
+pub async fn postgres_get_cliente_by_id(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    id: i32,
 ) -> Result<Cliente, sqlx::Error> {
     let cliente: Cliente = sqlx::query_as::<_, Cliente>(
         "SELECT
@@ -45,24 +62,7 @@ pub async fn postgres_get_cliente_by_id(
         FROM clientes
         WHERE id = $1",
     )
-    .bind(user_id)
-    .fetch_one(pool)
-    .await?;
-
-    Ok(cliente)
-}
-
-pub async fn postgres_get_cliente_by_user_id(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    user_id: i32,
-) -> Result<Cliente, sqlx::Error> {
-    let cliente: Cliente = sqlx::query_as::<_, Cliente>(
-        "SELECT
-            id, user_id, nombre, email, telefono, direccion, fecha_registro
-        FROM clientes
-        WHERE user_id = $1",
-    )
-    .bind(user_id)
+    .bind(id)
     .fetch_one(pool)
     .await?;
 
