@@ -20,19 +20,36 @@ use std::env;
 mod articulos;
 mod clientes;
 mod postgresini;
+mod sesion;
 
 use articulos::{
     Articulo, ArticuloRequest, postgres_create_articulo, postgres_get_articulo_by_id,
     postgres_get_articulos, postgres_update_articulo,
 };
 use clientes::{Cliente, postgres_get_cliente_by_id};
+use sesion::{AuthProfile, redis_get_session_by_token, redis_set_session_by_token};
 
 struct AppState {
     pool: sqlx::Pool<sqlx::Postgres>,
+    redis_connection_string: String,
 }
 
 #[launch]
 async fn rocket() -> _ {
+    let redis_password = std::env::var("REDIS_PASSWORD").unwrap_or_default();
+    let redis_host = std::env::var("REDIS_SERVICE").unwrap_or_default();
+    let redis_port = std::env::var("REDIS_PORT").unwrap_or_default();
+
+    if redis_password.is_empty() || redis_host.is_empty() || redis_port.is_empty() {
+        eprintln!("Error REDIS_PASSWORD, REDIS_SERVICE or REDIS_PORT is empty");
+        std::process::exit(1);
+    }
+
+    let redis_connection_string =
+        format!("redis://:{}@{}:{}/", redis_password, redis_host, redis_port);
+
+    //print!("redis_connection_string: {}\n", redis_connection_string);
+
     // sacamos de env POSTGRES_DB
     let postgres_db =
         env::var("POSTGRES_DB").expect("La variable de entorno POSTGRES_DB no está definida");
@@ -63,7 +80,10 @@ async fn rocket() -> _ {
     let cors = cors_options().to_cors().expect("Error al configurar CORS");
 
     rocket::build()
-        .manage(AppState { pool })
+        .manage(AppState {
+            pool,
+            redis_connection_string,
+        })
         .mount(
             "/",
             routes![
@@ -137,14 +157,6 @@ fn cors_options() -> CorsOptions {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct AuthProfile {
-    id: i32,
-    client_id: String,
-    user_id: i32,
-    attributes: HashMap<String, String>,
-}
-
 async fn auth_profile(token: BearerToken) -> Result<Option<AuthProfile>, Status> {
     let authprofile_url = env::var("AUTH_PROFILE_URL")
         .expect("La variable de entorno AUTH_PROFILE_URL no está definida");
@@ -182,9 +194,33 @@ struct AuthResponse {
 }
 
 #[get("/auth")]
-async fn auth(token: BearerToken) -> Result<Json<AuthResponse>, Status> {
+async fn auth(
+    state: &rocket::State<AppState>,
+    token: BearerToken,
+) -> Result<Json<AuthResponse>, Status> {
     if token.0.is_empty() {
         return Err(Status::Unauthorized);
+    }
+
+    let token_str = token.0.clone();
+
+    let redis_client =
+        redis::Client::open(state.redis_connection_string.clone()).map_err(|err| {
+            eprintln!("Error connecting to redis: {:?}", err);
+            Status::InternalServerError
+        })?;
+
+    let profile = redis_get_session_by_token(&redis_client, &token_str)
+        .await
+        .map_err(|e| {
+            eprintln!("Error getting session: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    if profile.is_some() {
+        return Ok(Json(AuthResponse {
+            status: "success".to_string(),
+        }));
     }
 
     let profile = match auth_profile(token).await {
@@ -204,6 +240,13 @@ async fn auth(token: BearerToken) -> Result<Json<AuthResponse>, Status> {
     if profile.user_id == 0 {
         return Err(Status::Forbidden);
     }
+
+    redis_set_session_by_token(&redis_client, &token_str, &profile)
+        .await
+        .map_err(|e| {
+            eprintln!("Error setting session: {:?}", e);
+            Status::InternalServerError
+        })?;
 
     Ok(Json(AuthResponse {
         status: "success".to_string(),
