@@ -137,7 +137,7 @@ fn cors_options() -> CorsOptions {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct AuthProfile {
     id: i32,
     client_id: String,
@@ -145,25 +145,35 @@ struct AuthProfile {
     attributes: HashMap<String, String>,
 }
 
-async fn auth_profile(token: BearerToken) -> Option<AuthProfile> {
+async fn auth_profile(token: BearerToken) -> Result<Option<AuthProfile>, Status> {
     let authprofile_url = env::var("AUTH_PROFILE_URL")
         .expect("La variable de entorno AUTH_PROFILE_URL no está definida");
 
-    let client = Client::builder().build().unwrap();
+    let client = Client::builder()
+        .build()
+        .expect("No se pudo crear el cliente HTTP");
 
     let response = client
         .get(authprofile_url)
-        .header("Authorization ", format!("Bearer {}", token.0))
+        .header("Authorization", format!("Bearer {}", token.0))
         .send()
         .await
-        .unwrap();
+        .map_err(|e| {
+            eprintln!("Error getting profile: {:?}", e);
+            Status::InternalServerError
+        })?;
 
-    if !response.status().is_success() {
-        return None;
+    if response.status().is_success() {
+        let profile: AuthProfile = response.json().await.map_err(|e| {
+            eprintln!("Error parsing profile: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+        Ok(Some(profile))
+    } else {
+        eprintln!("auth_profile response status: {}", response.status());
+        Err(Status::InternalServerError)
     }
-
-    let profile: AuthProfile = response.json().await.unwrap();
-    Some(profile)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -173,7 +183,17 @@ struct AuthResponse {
 
 #[get("/auth")]
 async fn auth(token: BearerToken) -> Result<Json<AuthResponse>, Status> {
-    let profile = auth_profile(token).await;
+    if token.0.is_empty() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -195,7 +215,13 @@ async fn getarticulos(
     state: &rocket::State<AppState>,
     token: BearerToken,
 ) -> Result<Json<Vec<Articulo>>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -222,7 +248,13 @@ async fn getarticulo(
     token: BearerToken,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -250,7 +282,13 @@ async fn postarticulo(
     articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -288,7 +326,13 @@ async fn putarticulo(
     articulo: Json<ArticuloRequest>,
     id: i32,
 ) -> Result<Json<Articulo>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -325,7 +369,13 @@ async fn profile(
     token: BearerToken,
     id: i32,
 ) -> Result<Json<Cliente>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -352,7 +402,13 @@ async fn profiles(
     state: &State<AppState>,
     token: BearerToken,
 ) -> Result<Json<Vec<Cliente>>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -380,7 +436,13 @@ async fn postprofile(
     token: BearerToken,
     cliente: Json<clientes::ClienteRequest>,
 ) -> Result<Json<Cliente>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);
@@ -412,7 +474,13 @@ async fn putprofile(
     cliente: Json<clientes::ClienteRequest>,
     user_id: i32,
 ) -> Result<Json<Cliente>, Status> {
-    let profile = auth_profile(token).await;
+    let profile = match auth_profile(token).await {
+        Ok(profile) => profile,
+        Err(e) => {
+            eprintln!("Error getting profile: {:?}", e);
+            return Err(Status::InternalServerError);
+        }
+    };
 
     if profile.is_none() {
         return Err(Status::Unauthorized);

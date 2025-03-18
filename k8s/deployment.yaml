@@ -11,6 +11,15 @@ data:
   CLIENT_ID: CRM
   REDIRECT_URI: https://crm.mydomain.com/authback/?code=
 ---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: redis-config
+  namespace: dummy-crm-namespace
+data:
+  REDIS_SERVICE: redis
+  REDIS_PORT: "6379"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,9 +42,17 @@ spec:
         - containerPort: 8080
         envFrom:
         - configMapRef:
-            name: auth-config  # Referencia al ConfigMap        
+            name: auth-config  # Referencia al ConfigMap
         - configMapRef:
-            name: postgres-config  # Referencia al ConfigMap        
+            name: postgres-config  # Referencia al ConfigMap
+        - configMapRef:
+            name: redis-config  # Referencia al ConfigMap
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret  # Nombre del secret
+              key: REDIS_PASSWORD  # Clave del secret
         resources:
           limits:
             cpu: 500m
