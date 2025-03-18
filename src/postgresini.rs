@@ -105,7 +105,7 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
     sqlx::query(
         r#"        
         INSERT INTO clientes (user_id,nombre, email, telefono, direccion)
-        VALUES (21,'Juan Pérez', 'juan@example.com', '123456789', 'Calle Falsa 123');
+        VALUES (1,'Juan Pérez', 'juan@example.com', '123456789', 'Calle Falsa 123');
         "#,
     )
     .execute(&pool)
