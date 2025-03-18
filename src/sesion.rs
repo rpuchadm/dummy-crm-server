@@ -12,7 +12,6 @@ pub struct AuthProfile {
 }
 
 const SESSION_TOKEN_KEY: &str = "session-token:";
-const SESSION_TIME_SECONDS: i64 = 60 * 2; // 2 minutos
 pub async fn redis_get_session_by_token(
     client: &redis::Client,
     token: &str,
@@ -27,15 +26,17 @@ pub async fn redis_get_session_by_token(
     };
     Ok(session)
 }
+
 pub async fn redis_set_session_by_token(
     client: &redis::Client,
     token: &str,
     session: &AuthProfile,
+    auth_redis_ttl: i64,
 ) -> redis::RedisResult<()> {
     let key = format!("{}:{}", SESSION_TOKEN_KEY, token);
     let mut con = client.get_multiplexed_async_connection().await.unwrap();
     let session_json = serde_json::to_string(session).unwrap();
     let _: () = con.set(&key, session_json).await?;
-    let _: () = con.expire(&key, SESSION_TIME_SECONDS).await?;
+    let _: () = con.expire(&key, auth_redis_ttl).await?;
     Ok(())
 }

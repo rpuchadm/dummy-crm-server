@@ -32,6 +32,7 @@ use sesion::{AuthProfile, redis_get_session_by_token, redis_set_session_by_token
 struct AppState {
     pool: sqlx::Pool<sqlx::Postgres>,
     redis_connection_string: String,
+    auth_redis_ttl: i64,
 }
 
 #[launch]
@@ -49,6 +50,11 @@ async fn rocket() -> _ {
         format!("redis://:{}@{}:{}/", redis_password, redis_host, redis_port);
 
     //print!("redis_connection_string: {}\n", redis_connection_string);
+
+    let auth_redis_ttl = std::env::var("AUTH_REDIS_TTL")
+        .unwrap_or_else(|_| "120".to_string())
+        .parse::<i64>()
+        .expect("AUTH_REDIS_TTL must be a number");
 
     // sacamos de env POSTGRES_DB
     let postgres_db =
@@ -83,6 +89,7 @@ async fn rocket() -> _ {
         .manage(AppState {
             pool,
             redis_connection_string,
+            auth_redis_ttl,
         })
         .mount(
             "/",
@@ -241,7 +248,7 @@ async fn auth(
         return Err(Status::Forbidden);
     }
 
-    redis_set_session_by_token(&redis_client, &token_str, &profile)
+    redis_set_session_by_token(&redis_client, &token_str, &profile, state.auth_redis_ttl)
         .await
         .map_err(|e| {
             eprintln!("Error setting session: {:?}", e);
