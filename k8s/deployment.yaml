@@ -49,6 +49,11 @@ spec:
         - configMapRef:
             name: redis-config  # Referencia al ConfigMap
         env:
+        - name: CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: auth-secret  # Nombre del secret
+              key: CLIENT_SECRET  # Clave del secret        
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
