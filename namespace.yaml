@@ -1,3 +1,4 @@
+# microk8s kubectl create namespace dummy-crm-namespace
 apiVersion: v1
 kind: Namespace
 metadata:
