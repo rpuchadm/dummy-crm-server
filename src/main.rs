@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use redis::AsyncCommands;
 use reqwest::Certificate;
 use reqwest::Client;
+use rocket::data;
 use rocket::form::Form;
 use rocket::http::Status;
 use rocket::outcome::Outcome;
@@ -12,13 +13,12 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::{State, delete, get, launch, post, routes};
 use rocket::{catch, catchers, put};
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
-// put
-use sqlx::{Decode, FromRow, postgres};
 use std::collections::HashMap;
 use std::env;
 
 mod articulos;
 mod clientes;
+mod corpservice;
 mod postgresini;
 mod sesion;
 
@@ -27,6 +27,7 @@ use articulos::{
     postgres_get_articulos, postgres_update_articulo,
 };
 use clientes::{Cliente, postgres_get_cliente_by_user_id};
+use corpservice::{UserData, corp_service_userdata_by_id};
 use sesion::{AuthProfile, redis_get_session_by_token, redis_set_session_by_token};
 
 struct AppState {
@@ -425,12 +426,18 @@ async fn putarticulo(
     Ok(Json(new_articulo))
 }
 
+#[derive(Serialize, Deserialize)]
+struct GetProfileResponse {
+    cliente: Option<Cliente>,
+    corp_user: Option<UserData>,
+}
+
 #[get("/profile/<id>")]
 async fn profile(
     state: &State<AppState>,
     token: BearerToken,
     id: i32,
-) -> Result<Json<Option<Cliente>>, Status> {
+) -> Result<Json<GetProfileResponse>, Status> {
     let profile = auth_profile(token).await?;
 
     if profile.is_none() {
@@ -460,7 +467,11 @@ async fn profile(
             Status::InternalServerError
         })?;
 
-    Ok(Json(cliente))
+    let corp_user = corp_service_userdata_by_id(id).await;
+
+    let mut data = GetProfileResponse { cliente, corp_user };
+
+    Ok(Json(data))
 }
 
 #[get("/profiles")]
