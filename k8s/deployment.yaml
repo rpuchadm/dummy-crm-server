@@ -28,6 +28,7 @@ metadata:
   name: dummy-crm-rust-app
   namespace: dummy-crm-namespace
 spec:
+  revisionHistoryLimit: 2
   replicas: 1
   selector:
     matchLabels:
