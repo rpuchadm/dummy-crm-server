@@ -2,6 +2,9 @@ cargo new dummy-crm-server
 
 cargo update
 
+rustup check
+rustup update
+
 #Makefile
 docker build -t rust-app .
 docker tag rust-app localhost:32000/dummy-crm-rust-app:latest
