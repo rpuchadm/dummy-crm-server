@@ -438,14 +438,11 @@ async fn profile(
     token: BearerToken,
     id: i32,
 ) -> Result<Json<GetProfileResponse>, Status> {
+    // Autenticación
     let profile = auth_profile(token).await?;
+    let profile = profile.ok_or(Status::Unauthorized)?;
 
-    if profile.is_none() {
-        return Err(Status::Unauthorized);
-    }
-
-    let profile = profile.unwrap();
-
+    // Autorización
     if profile.user_id == 0 {
         return Err(Status::Forbidden);
     }
@@ -457,7 +454,7 @@ async fn profile(
             return Err(Status::Forbidden);
         }
     }
-
+    // Obtener datos
     let pool = state.pool.clone();
 
     let cliente = postgres_get_cliente_by_user_id(&pool, id)
@@ -467,9 +464,12 @@ async fn profile(
             Status::InternalServerError
         })?;
 
-    let corp_user = corp_service_userdata_by_id(id).await;
+    let corp_user = corp_service_userdata_by_id(id).await.map_err(|e| {
+        eprintln!("Error fetching corp user data: {:?}", e);
+        Status::FailedDependency // 424 - Dependencia fallida
+    })?;
 
-    let mut data = GetProfileResponse { cliente, corp_user };
+    let data = GetProfileResponse { cliente, corp_user };
 
     Ok(Json(data))
 }
