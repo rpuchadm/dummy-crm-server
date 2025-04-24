@@ -654,7 +654,7 @@ async fn authback(code: &str) -> Result<Option<Json<AccessTokenResponse>>, Statu
 async fn postissue(
     state: &rocket::State<AppState>,
     token: BearerToken,
-    issuepostrequest: Json<issuerequest::IssuePostRequest>,
+    mut issuepostrequest: Json<issuerequest::IssuePostRequest>,
     tipo: &str,
     id: i32,
 ) -> Result<Json<issuerequest::IssueRequest>, Status> {
@@ -692,6 +692,23 @@ async fn postissue(
         return Err(Status::BadRequest);
     }
 
+    if tipo == "articulo" {
+        issuepostrequest.subject = format!(
+            "{}\nhttps://crm.mydomain.com/articulo/{}",
+            issuepostrequest.subject, id
+        );
+    } else if tipo == "cliente" {
+        issuepostrequest.subject = format!(
+            "{}\nhttps://crm.mydomain.com/profile/{}",
+            issuepostrequest.subject, id
+        );
+    } else if tipo == "pedido" {
+        issuepostrequest.subject = format!(
+            "{}\nhttps://crm.mydomain.com/pedido/{}",
+            issuepostrequest.subject, id
+        );
+    }
+
     let pool = state.pool.clone();
     let issue_request = issuerequest::IssueRequest {
         id: 0,
@@ -716,7 +733,7 @@ async fn postissue(
         return Err(Status::InternalServerError);
     }
 
-    // si type es articulo, crear relacion
+    // si tipo es articulo o cliente o pedido crea la relacion
     if tipo == "articulo" {
         let _ =
             issuerequest::postgres_create_issue_request_articulo(&pool, new_issue_request.id, id)
