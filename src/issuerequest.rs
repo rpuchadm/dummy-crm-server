@@ -8,12 +8,6 @@ pub struct IssueRequest {
     pub data: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct IssuePostRequest {
-    pub subject: String,
-    pub description: String,
-}
-
 pub async fn postgres_get_issue_requests_by_articulo(
     pool: &sqlx::Pool<sqlx::Postgres>,
     articulo_id: i32,

@@ -650,14 +650,24 @@ async fn authback(code: &str) -> Result<Option<Json<AccessTokenResponse>>, Statu
     Ok(Some(Json(response)))
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct IssuePostRequest {
+    pub subject: String,
+    pub description: String,
+    pub project_id: Option<i32>,
+    pub tracker_id: Option<i32>,
+}
+
 #[post("/issue/<tipo>/<id>", data = "<issuepostrequest>")]
 async fn postissue(
     state: &rocket::State<AppState>,
     token: BearerToken,
-    mut issuepostrequest: Json<issuerequest::IssuePostRequest>,
+    mut issuepostrequest: Json<IssuePostRequest>,
     tipo: &str,
     id: i32,
 ) -> Result<Json<issuerequest::IssueRequest>, Status> {
+    //print!("postissue: tipo: {}, id: {}\n", tipo, id);
+
     let profile = auth_profile(token.clone()).await?;
 
     if profile.is_none() {
@@ -709,6 +719,31 @@ async fn postissue(
         );
     }
 
+    // si project_id o tracker_id son 0 o nulos asigna el valor por defecto
+    if issuepostrequest.project_id.is_none() || issuepostrequest.project_id.unwrap() == 0 {
+        let default_project_id = env::var("ISSUE_DEFAULT_PROJECT_ID").map_err(|_| {
+            eprintln!("La variable ISSUE_DEFAULT_PROJECT_ID no está definida");
+            Status::InternalServerError
+        })?;
+        let num_default_project_id = default_project_id.parse::<i32>().map_err(|_| {
+            eprintln!("La variable ISSUE_DEFAULT_PROJECT_ID no es un número");
+            Status::InternalServerError
+        })?;
+        issuepostrequest.project_id = Some(num_default_project_id);
+    }
+    if issuepostrequest.tracker_id.is_none() || issuepostrequest.tracker_id.unwrap() == 0 {
+        let default_track_id = env::var("ISSUE_DEFAULT_TRACKER_ID").map_err(|_| {
+            eprintln!("La variable ISSUE_DEFAULT_TRACKER_ID no está definida");
+            Status::InternalServerError
+        })?;
+
+        let num_default_track_id = default_track_id.parse::<i32>().map_err(|_| {
+            eprintln!("La variable ISSUE_DEFAULT_TRACKER_ID no es un número");
+            Status::InternalServerError
+        })?;
+        issuepostrequest.tracker_id = Some(num_default_track_id);
+    }
+
     let pool = state.pool.clone();
     let issue_request = issuerequest::IssueRequest {
         id: 0,
@@ -718,6 +753,8 @@ async fn postissue(
             "id": id,
             "subject": issuepostrequest.subject,
             "description": issuepostrequest.description,
+            "project_id": issuepostrequest.project_id,
+            "tracker_id": issuepostrequest.tracker_id,
         }),
     };
 
@@ -763,8 +800,8 @@ async fn postissue(
     let issue_service_post_data = issueservice::IssueServicePostData {
         subject: issuepostrequest.subject.clone(),
         description: issuepostrequest.description.clone(),
-        project_id: 0,
-        tracker_id: 0,
+        project_id: issuepostrequest.project_id.unwrap(),
+        tracker_id: issuepostrequest.tracker_id.unwrap(),
     };
 
     let issue_service_post_ret =

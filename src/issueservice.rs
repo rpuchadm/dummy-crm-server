@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::env;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct IssueServicePostData {
     pub subject: String,
     pub description: String,
@@ -10,33 +10,23 @@ pub struct IssueServicePostData {
 }
 
 pub async fn issue_service_post(
-    mut issue_service_post_data: IssueServicePostData,
+    issue_service_post_data: IssueServicePostData,
     token: String,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let issue_service_url = env::var("ISSUE_CREATE_URL")
         .map_err(|_| "La variable ISSUE_CREATE_URL no está definida")?;
 
     if issue_service_post_data.project_id == 0 {
-        let issue_default_project_id = env::var("ISSUE_DEFAULT_PROJECT_ID")
-            .map_err(|_| "La variable ISSUE_DEFAULT_PROJECT_ID no está definida")?;
-
-        let project_id = issue_default_project_id
-            .parse::<i32>()
-            .map_err(|_| "La variable ISSUE_DEFAULT_PROJECT_ID no es un número")?;
-
-        issue_service_post_data.project_id = project_id;
+        return Err("El project_id no puede ser 0".into());
     }
 
     if issue_service_post_data.tracker_id == 0 {
-        let issue_default_tracker_id = env::var("ISSUE_DEFAULT_TRACKER_ID")
-            .map_err(|_| "La variable ISSUE_DEFAULT_TRACKER_ID no está definida")?;
-
-        let tracker_id = issue_default_tracker_id
-            .parse::<i32>()
-            .map_err(|_| "La variable ISSUE_DEFAULT_TRACKER_ID no es un número")?;
-
-        issue_service_post_data.tracker_id = tracker_id;
+        return Err("El tracker_id no puede ser 0".into());
     }
+
+    print!("issue_service_post_data: {:?}", issue_service_post_data);
+    println!("token: {}", token);
+    println!("issue_service_url: {}", issue_service_url);
 
     let client = reqwest::Client::new();
 

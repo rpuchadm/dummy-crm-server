@@ -8,7 +8,7 @@ data:
   #AUTH_ACCESSTOKEN_URL: https://erp.mydomain.com/oauth/accessToken
   AUTH_ACCESSTOKEN_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/accessToken
   AUTH_PROFILE_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/profile
-  ISSUE_CREATE_URL: http://go-redmine-ish-golang-service.go-redmine-ish:8080/issue/issue
+  ISSUE_CREATE_URL: http://go-redmine-ish-golang-service.go-redmine-ish:8080/issue
   ISSUE_DEFAULT_PROJECT_ID: "2"
   ISSUE_DEFAULT_TRACKER_ID: "4"
   CLIENT_ID: CRM
