@@ -1,16 +1,11 @@
-use chrono::prelude::*;
-use redis::AsyncCommands;
-use reqwest::Certificate;
 use reqwest::Client;
-use rocket::data;
-use rocket::form::Form;
 use rocket::http::Status;
 use rocket::outcome::Outcome;
 use rocket::request::{self, FromRequest, Request};
 use rocket::response::status::NotFound;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::{State, delete, get, launch, post, routes};
+use rocket::{State, get, launch, post, routes};
 use rocket::{catch, catchers, put};
 use rocket_cors::{AllowedHeaders, AllowedOrigins, CorsOptions};
 use std::collections::HashMap;
@@ -19,6 +14,8 @@ use std::env;
 mod articulos;
 mod clientes;
 mod corpservice;
+mod issuerequest;
+mod issueservice;
 mod postgresini;
 mod sesion;
 
@@ -27,7 +24,6 @@ use articulos::{
     postgres_get_articulos, postgres_update_articulo,
 };
 use clientes::{Cliente, postgres_get_cliente_by_user_id};
-use corpservice::{UserData, corp_service_userdata_by_id};
 use sesion::{AuthProfile, redis_get_session_by_token, redis_set_session_by_token};
 
 struct AppState {
@@ -96,22 +92,24 @@ async fn rocket() -> _ {
             "/",
             routes![
                 auth,
+                authback,
                 getarticulo,
                 getarticulos,
                 healthz,
                 postarticulo,
+                postissue,
                 postprofile,
                 profile,
                 profiles,
                 putarticulo,
                 putprofile,
-                authback,
             ],
         )
         .register("/", catchers![not_found])
         .attach(cors)
 }
 
+#[derive(Clone)]
 struct BearerToken(String);
 
 #[rocket::async_trait]
@@ -323,12 +321,18 @@ async fn getarticulos(
     Ok(Json(varticulos))
 }
 
+#[derive(Serialize, Deserialize)]
+struct ArticuloData {
+    articulo: Articulo,
+    issue_requests: Vec<issuerequest::IssueRequest>,
+}
+
 #[get("/articulo/<id>")]
 async fn getarticulo(
     state: &rocket::State<AppState>,
     token: BearerToken,
     id: i32,
-) -> Result<Json<Articulo>, Status> {
+) -> Result<Json<ArticuloData>, Status> {
     let profile = auth_profile(token).await?;
 
     if profile.is_none() {
@@ -347,6 +351,16 @@ async fn getarticulo(
         Status::InternalServerError
     })?;
 
+    let issue_requests = issuerequest::postgres_get_issue_requests_by_articulo(&pool, id)
+        .await
+        .map_err(|e| {
+            eprintln!("Error getting issue requests: {:?}", e);
+            Status::InternalServerError
+        })?;
+    let articulo = ArticuloData {
+        articulo: articulo.clone(),
+        issue_requests,
+    };
     Ok(Json(articulo))
 }
 
@@ -429,7 +443,8 @@ async fn putarticulo(
 #[derive(Serialize, Deserialize)]
 struct GetProfileResponse {
     cliente: Option<Cliente>,
-    corp_user: Option<UserData>,
+    corp_user: Option<corpservice::UserData>,
+    issue_requests: Vec<issuerequest::IssueRequest>,
 }
 
 #[get("/profile/<id>")]
@@ -464,12 +479,25 @@ async fn profile(
             Status::InternalServerError
         })?;
 
-    let corp_user = corp_service_userdata_by_id(id).await.map_err(|e| {
-        eprintln!("Error fetching corp user data: {:?}", e);
-        Status::FailedDependency // 424 - Dependencia fallida
-    })?;
+    let corp_user = corpservice::corp_service_userdata_by_id(id)
+        .await
+        .map_err(|e| {
+            eprintln!("Error fetching corp user data: {:?}", e);
+            Status::FailedDependency // 424 - Dependencia fallida
+        })?;
 
-    let data = GetProfileResponse { cliente, corp_user };
+    let issue_requests = issuerequest::postgres_get_issue_requests_by_cliente(&pool, id)
+        .await
+        .map_err(|e| {
+            eprintln!("Error getting issue requests: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    let data = GetProfileResponse {
+        cliente,
+        corp_user,
+        issue_requests,
+    };
 
     Ok(Json(data))
 }
@@ -620,4 +648,129 @@ async fn authback(code: &str) -> Result<Option<Json<AccessTokenResponse>>, Statu
     })?;
 
     Ok(Some(Json(response)))
+}
+
+#[post("/issue/<tipo>/<id>", data = "<issuepostrequest>")]
+async fn postissue(
+    state: &rocket::State<AppState>,
+    token: BearerToken,
+    issuepostrequest: Json<issuerequest::IssuePostRequest>,
+    tipo: &str,
+    id: i32,
+) -> Result<Json<issuerequest::IssueRequest>, Status> {
+    let profile = auth_profile(token.clone()).await?;
+
+    if profile.is_none() {
+        return Err(Status::Unauthorized);
+    }
+
+    let profile = profile.unwrap();
+
+    if profile.user_id == 0 {
+        return Err(Status::Forbidden);
+    }
+
+    // si id es 0 da error
+    if id == 0 {
+        eprintln!("Error creating issue request: id must not be 0");
+        return Err(Status::BadRequest);
+    }
+    // si tipo es vacio da error
+    if tipo.is_empty() {
+        eprintln!("Error creating issue request: type cannot be empty");
+        return Err(Status::BadRequest);
+    }
+    // si tipo no es articulo o pedido da error
+    if tipo != "articulo" && tipo != "cliente" && tipo != "pedido" {
+        eprintln!("Error creating issue request: type must be articulo,cliente or pedido");
+        return Err(Status::BadRequest);
+    }
+
+    // si subject o description son vacios da error
+    if issuepostrequest.subject.is_empty() || issuepostrequest.description.is_empty() {
+        eprintln!("Error creating issue request: subject or description cannot be empty");
+        return Err(Status::BadRequest);
+    }
+
+    let pool = state.pool.clone();
+    let issue_request = issuerequest::IssueRequest {
+        id: 0,
+        fecha_creacion: chrono::Utc::now().naive_utc(),
+        data: serde_json::json!({
+            "type": tipo,
+            "id": id,
+            "subject": issuepostrequest.subject,
+            "description": issuepostrequest.description,
+        }),
+    };
+
+    let new_issue_request = issuerequest::postgres_create_issue_request(&pool, issue_request)
+        .await
+        .map_err(|e| {
+            eprintln!("Error creating issue request: {:?}", e);
+            Status::InternalServerError
+        })?;
+
+    if new_issue_request.id == 0 {
+        eprintln!("Error creating issue request: id is 0");
+        return Err(Status::InternalServerError);
+    }
+
+    // si type es articulo, crear relacion
+    if tipo == "articulo" {
+        let _ =
+            issuerequest::postgres_create_issue_request_articulo(&pool, new_issue_request.id, id)
+                .await
+                .map_err(|e| {
+                    eprintln!("Error creating issue request article relation: {:?}", e);
+                    Status::InternalServerError
+                })?;
+    } else if tipo == "cliente" {
+        let _ =
+            issuerequest::postgres_create_issue_request_cliente(&pool, new_issue_request.id, id)
+                .await
+                .map_err(|e| {
+                    eprintln!("Error creating issue request client relation: {:?}", e);
+                    Status::InternalServerError
+                })?;
+    } else if tipo == "pedido" {
+        let _ = issuerequest::postgres_create_issue_request_pedido(&pool, new_issue_request.id, id)
+            .await
+            .map_err(|e| {
+                eprintln!("Error creating issue request order relation: {:?}", e);
+                Status::InternalServerError
+            })?;
+    }
+
+    // TODO hacer peticion rest con el token, id_proyecto fijo, subject y description
+    let issue_service_post_data = issueservice::IssueServicePostData {
+        subject: issuepostrequest.subject.clone(),
+        description: issuepostrequest.description.clone(),
+        project_id: 0,
+        tracker_id: 0,
+    };
+
+    let issue_service_post_ret =
+        issueservice::issue_service_post(issue_service_post_data, token.0.clone())
+            .await
+            .map_err(|e| {
+                eprintln!("Error creating issue in issue service: {:?}", e);
+                Status::InternalServerError
+            })?;
+    if issue_service_post_ret.is_empty() {
+        eprintln!("Error creating issue in issue service: empty response");
+        return Err(Status::InternalServerError);
+    }
+    // si issue_service_post_ret no es un numero da error
+    if issue_service_post_ret.parse::<i32>().is_err() {
+        eprintln!("Error creating issue in issue service: invalid response");
+        return Err(Status::InternalServerError);
+    }
+    // si issue_service_post_ret es 0 da error
+    if issue_service_post_ret.parse::<i32>().unwrap() == 0 {
+        eprintln!("Error creating issue in issue service: id is 0");
+        return Err(Status::InternalServerError);
+    }
+
+    Ok(Json(new_issue_request))
 }

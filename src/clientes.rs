@@ -52,6 +52,7 @@ pub async fn postgres_get_cliente_by_user_id(
     Ok(cliente)
 }
 
+/*
 pub async fn postgres_get_cliente_by_id(
     pool: &sqlx::Pool<sqlx::Postgres>,
     id: i32,
@@ -68,6 +69,7 @@ pub async fn postgres_get_cliente_by_id(
 
     Ok(cliente)
 }
+*/
 
 pub async fn postgres_create_cliente(
     pool: &sqlx::Pool<sqlx::Postgres>,

@@ -1,6 +1,42 @@
 pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
     sqlx::query(
         r#"        
+        DROP TABLE IF EXISTS issue_request_articulos;
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
+        DROP TABLE IF EXISTS issue_request_clientes;
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
+        DROP TABLE IF EXISTS issue_request_pedidos;
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
+        DROP TABLE IF EXISTS issue_request;
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
         DROP TABLE IF EXISTS pedidos_detalles;
         "#,
     )
@@ -95,6 +131,67 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
             subtotal INT NOT NULL,   -- Subtotal (cantidad * precio_unitario)
             FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE,
             FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
+        CREATE TABLE IF NOT EXISTS issue_request (
+            id SERIAL PRIMARY KEY,              -- Identificador único
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de creación
+            data JSONB NOT NULL             -- Datos de la solicitud
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
+        CREATE TABLE IF NOT EXISTS issue_request_articulos (
+            issue_request_id INT NOT NULL,             -- ID de la solicitud
+            articulo_id INT NOT NULL,                  -- ID del artículo
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de creación
+            FOREIGN KEY (issue_request_id) REFERENCES issue_request(id) ON DELETE CASCADE,
+            FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE,
+            PRIMARY KEY (issue_request_id, articulo_id) -- Clave primaria compuesta
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
+        CREATE TABLE IF NOT EXISTS issue_request_clientes (
+            issue_request_id INT NOT NULL,             -- ID de la solicitud
+            cliente_id INT NOT NULL,                  -- ID del cliente
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de creación
+            FOREIGN KEY (issue_request_id) REFERENCES issue_request(id) ON DELETE CASCADE,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
+            PRIMARY KEY (issue_request_id, cliente_id) -- Clave primaria compuesta
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"        
+        CREATE TABLE IF NOT EXISTS issue_request_pedidos (
+            issue_request_id INT NOT NULL,             -- ID de la solicitud
+            pedido_id INT NOT NULL,                  -- ID del pedido
+            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de creación
+            FOREIGN KEY (issue_request_id) REFERENCES issue_request(id) ON DELETE CASCADE,
+            FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE,
+            PRIMARY KEY (issue_request_id, pedido_id) -- Clave primaria compuesta
         );
         "#,
     )

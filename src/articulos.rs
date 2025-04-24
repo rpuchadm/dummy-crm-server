@@ -10,7 +10,7 @@ pub struct ArticuloRequest {
     pub stock: i32,
 }
 
-#[derive(Serialize, Clone, FromRow, Decode)]
+#[derive(Serialize, Deserialize, Clone, FromRow, Decode)]
 pub struct Articulo {
     pub id: i32,
     pub nombre: String,
