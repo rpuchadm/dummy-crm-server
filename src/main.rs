@@ -820,11 +820,24 @@ async fn postissue(
         eprintln!("Error creating issue in issue service: invalid response");
         return Err(Status::InternalServerError);
     }
-    // si issue_service_post_ret es 0 da error
-    if issue_service_post_ret.parse::<i32>().unwrap() == 0 {
+
+    let issue_id = issue_service_post_ret.parse::<i32>().unwrap();
+
+    if issue_id == 0 {
         eprintln!("Error creating issue in issue service: id is 0");
         return Err(Status::InternalServerError);
     }
+
+    issuerequest::postgres_update_issue_set_issue_id_where_id(
+        &pool,
+        new_issue_request.id,
+        issue_id,
+    )
+    .await
+    .map_err(|e| {
+        eprintln!("Error updating issue request with issue id: {:?}", e);
+        Status::InternalServerError
+    })?;
 
     Ok(Json(new_issue_request))
 }

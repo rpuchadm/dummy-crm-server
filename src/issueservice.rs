@@ -47,8 +47,8 @@ pub async fn issue_service_post(
     let response_json: serde_json::Value = serde_json::from_str(&response_text)
         .map_err(|e| format!("Error al parsear la respuesta JSON: {}", e))?;
     let issue_id = response_json
-        .get("issue_id")
+        .get("id")
         .and_then(|v| v.as_i64())
-        .ok_or("Error al obtener el issue_id de la respuesta")?;
+        .ok_or("Error al obtener el id de la respuesta")?;
     Ok(issue_id.to_string())
 }

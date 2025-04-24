@@ -102,6 +102,25 @@ pub async fn postgres_create_issue_request(
     Ok(new_issue_request)
 }
 
+pub async fn postgres_update_issue_set_issue_id_where_id(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    issue_request_id: i32,
+    issue_id: i32,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "
+        UPDATE issue_request
+        SET issue_id = $1
+        WHERE id = $2",
+    )
+    .bind(issue_id)
+    .bind(issue_request_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
 pub async fn postgres_create_issue_request_articulo(
     pool: &sqlx::Pool<sqlx::Postgres>,
     issue_request_id: i32,

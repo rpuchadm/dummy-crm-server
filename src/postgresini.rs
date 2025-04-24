@@ -143,7 +143,8 @@ pub async fn initialization(pool: sqlx::Pool<sqlx::Postgres>) {
         CREATE TABLE IF NOT EXISTS issue_request (
             id SERIAL PRIMARY KEY,              -- Identificador único
             fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de creación
-            data JSONB NOT NULL             -- Datos de la solicitud
+            data JSONB NOT NULL,             -- Datos de la solicitud
+            issue_id INT                  -- ID del issue (opcional)
         );
         "#,
     )
