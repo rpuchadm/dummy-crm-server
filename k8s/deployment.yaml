@@ -5,8 +5,8 @@ metadata:
   name: auth-config
   namespace: dummy-crm-namespace
 data:
-  #AUTH_ACCESSTOKEN_URL: https://erp.mydomain.com/oauth/accessToken
-  AUTH_ACCESSTOKEN_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/accessToken
+  #AUTH_ACCESSTOKEN_URL: https://erp.mydomain.com/oauth/accessTokenClient
+  AUTH_ACCESSTOKEN_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/accessTokenClient
   AUTH_PROFILE_URL: http://dummy-corp-auth-rust-app.dummy-corp-erp-namespace:8080/profile
   ISSUE_CREATE_URL: http://go-redmine-ish-golang-service.go-redmine-ish:8080/issue
   ISSUE_DEFAULT_PROJECT_ID: "2"

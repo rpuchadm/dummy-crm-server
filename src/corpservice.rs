@@ -23,8 +23,8 @@ pub async fn corp_service_user_token() -> Result<String, Box<dyn std::error::Err
 
     // Debug (opcional)
     println!(
-        "Obteniendo token de {} para client_id: {}",
-        auth_access_token_url, client_id
+        "Obteniendo token de {} para client_id: {} client_secret: {}",
+        auth_access_token_url, client_id, client_secret
     );
 
     // Crear cliente y hacer la petición
@@ -88,6 +88,10 @@ pub async fn corp_service_userdata_by_id(
 ) -> Result<Option<UserData>, Box<dyn std::error::Error>> {
     // Obtener token
     let token = corp_service_user_token().await?;
+    println!(
+        "INFO fn corp_service_userdata_by_id Token obtenido: {}",
+        token
+    );
 
     // Obtener URL del servicio
     let corp_url = env::var("CORP_SERVICE_USERDATA_URL")
