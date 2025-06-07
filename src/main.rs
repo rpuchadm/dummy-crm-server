@@ -142,7 +142,8 @@ fn not_found(req: &Request) -> NotFound<String> {
 }
 
 fn cors_options() -> CorsOptions {
-    let allowed_origins = AllowedOrigins::some_exact(&["http://localhost:5173/"]);
+    let allowed_origins =
+        AllowedOrigins::some_exact(&["https://crm.mydomain.com", "http://localhost:5173/"]);
 
     // You can also deserialize this
     rocket_cors::CorsOptions {

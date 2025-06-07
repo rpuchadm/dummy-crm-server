@@ -22,7 +22,7 @@ cd docker &&\
 docker build -t rust-app -f DockerfileDebug . &&\
 docker tag rust-app localhost:32000/dummy-crm-rust-app:latest &&\
 docker push localhost:32000/dummy-crm-rust-app:latest &&\
-microk8s kubectl rollout restart deploy dummy-crm-rust-app -n dummy-crm-namespace
+microk8s kubectl rollout restart deploy dummy-crm-rust-app -n dummy-crm-namespace &&\
 cd ..
 
 
