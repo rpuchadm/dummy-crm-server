@@ -13,8 +13,8 @@ struct AccessTokenResponse {
 
 pub async fn corp_service_user_token() -> Result<String, Box<dyn std::error::Error>> {
     // Obtener variables de entorno
-    let auth_access_token_url = env::var("AUTH_ACCESSTOKEN_URL")
-        .map_err(|_| "La variable AUTH_ACCESSTOKEN_URL no está definida")?;
+    let auth_access_token_url = env::var("AUTH_ACCESSTOKEN_CLIENT_URL")
+        .map_err(|_| "La variable AUTH_ACCESSTOKEN_CLIENT_URL no está definida")?;
 
     let client_id = env::var("CLIENT_ID").map_err(|_| "La variable CLIENT_ID no está definida")?;
 
