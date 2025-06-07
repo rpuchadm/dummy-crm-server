@@ -704,19 +704,19 @@ async fn postissue(
     }
 
     if tipo == "articulo" {
-        issuepostrequest.subject = format!(
+        issuepostrequest.description = format!(
             "{}\nhttps://crm.mydomain.com/articulo/{}",
-            issuepostrequest.subject, id
+            issuepostrequest.description, id
         );
     } else if tipo == "cliente" {
-        issuepostrequest.subject = format!(
+        issuepostrequest.description = format!(
             "{}\nhttps://crm.mydomain.com/profile/{}",
-            issuepostrequest.subject, id
+            issuepostrequest.description, id
         );
     } else if tipo == "pedido" {
-        issuepostrequest.subject = format!(
+        issuepostrequest.description = format!(
             "{}\nhttps://crm.mydomain.com/pedido/{}",
-            issuepostrequest.subject, id
+            issuepostrequest.description, id
         );
     }
 
